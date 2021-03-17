@@ -1,19 +1,32 @@
 //This code is intended to be used a reference for the project
 //Referenced from Github user ravimalde
-//Full writeup at https://towardsdatascience.com/become-a-lyrical-genius-4362e7710e43
+//originally found at https://towardsdatascience.com/become-a-lyrical-genius-4362e7710e43
+//Full writeup in article by Ravi Malde at https://towardsdatascience.com/become-a-lyrical-genius-4362e7710e43
 //Executable through the following code:
   //songs = GetLyrics(spotify_client_id, spotify_client_secret, spotify_user_id, spotify_playlist_id, genius_key)
   //song_lyrics = songs.get_lyrics()
 
+//class designed to obtain song lyrics from Spotify playlists using the Spotify and Genius APIS and web scraping
+//code inspired by Will Soares from https://dev.to/willamesoares/how-to-integrate-spotify-and-genius-api-to-easily-crawl-song-lyrics-with-python-4o62
+//class requires the use of personal credentials for the Spotify and Genius APIs
+//class requires Spotify user and playlist IDs
 class GetLyrics():
     
+    //class constructor
+    //spotify_client_id and spotify_client_secret fields taken from personal Spotify developer account dashboard
+    //website for Spotify development: https://developer.spotify.com/dashboard/login
+    //user_id and playlist_id fields taken from personal Spotify account ((user/playlist)->share->copy Spotify URI)
+    //genius_key field taken from authorization code on the main genius developers page
+    //Genius developers link: https://docs.genius.com/#/getting-started-h1
     def __init__(self, spotify_client_id, spotify_client_secret, user_id, playlist_id, genius_key):
         self.spotify_client_id = spotify_client_id
         self.spotify_client_secret = spotify_client_secret
         self.user_id = user_id
         self.playlist_id = playlist_id
         self.genius_key = genius_key
-        
+     
+    //method to connect to the Spotify API using Spotipy
+    //returns a JSON object containing information about the requested Spotify playlist 
     def get_playlist_info(self):
         token = SpotifyClientCredentials(client_id=self.spotify_client_id, client_secret=self.spotify_client_secret).get_access_token()
         sp = spotipy.Spotify(token)
@@ -21,6 +34,8 @@ class GetLyrics():
         self.playlist = playlist
         return self.playlist
     
+    //method to find the name of each song in the playlist
+    //stores and returns song names in a list to be used later
     def get_track_names(self):
         track_names = []
         for song in range(len(self.playlist['items'])):
@@ -28,13 +43,18 @@ class GetLyrics():
         self.track_names = track_names
         return self.track_names
     
+    //method to find the artist of each song in the playlist
+    //stores and returns artists in a list to be used later
     def get_track_artists(self):
         track_artists = []
         for song in range(len(self.playlist['items'])):
             track_artists.append(self.playlist['items'][song]['track']['artists'][0]['name'])
         self.track_artists = track_artists
         return self.track_artists
-        
+       
+    //method using the Request library to connect with the Genius API (uses auth key)
+    //checks if there are any matches in the API to the track name & artist
+    //returns an object containing information relating to matches
     def request_song_info(self, track_name, track_artist):
         self.track_name = track_name
         self.track_artist = track_artist
@@ -46,6 +66,9 @@ class GetLyrics():
         self.response = response
         return self.response
 
+    //method to decode the JSON obect from a previous method
+    //checks which hits are exact matches with artist names
+    //if match is found, information on the track is stored in the remote_song_info object
     def check_hits(self):
         json = self.response.json()
         remote_song_info = None
@@ -56,11 +79,15 @@ class GetLyrics():
         self.remote_song_info = remote_song_info
         return self.remote_song_info
     
+    //parse the remote_song_info object to find each song's URL
     def get_url(self):
         song_url = self.remote_song_info['result']['url']
         self.song_url = song_url
         return self.song_url
     
+    //method using the Requests library to make a request to the song URL from previous method
+    //use of BeutifulSoup to parse HTML (.find() called twice to account for webpage inconsistencies))
+    //None case means a 404 error
     def scrape_lyrics(self):
         page = requests.get(self.song_url)
         html = BeautifulSoup(page.text, 'html.parser')
@@ -74,6 +101,8 @@ class GetLyrics():
             lyrics = None
         return lyrics
 
+    //method utilizing all previous methods to get lyrics simply
+    //includes print statements to track program progress
     def get_lyrics(self):
         playlist = GetLyrics.get_playlist_info(self)
         track_names = GetLyrics.get_track_names(self)
